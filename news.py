@@ -3,7 +3,7 @@ from fuzzywuzzy import fuzz
 import datetime
 
 from newsapi import NewsApiClient
-api = NewsApiClient(api_key='a6417a65f520473a9ee2b3366282eb9f')
+api = NewsApiClient(api_key='api-key')
 
 api_call = False
 
