@@ -1,0 +1,1 @@
+{"pagination": {"limit": 100, "offset": 0, "count": 1, "total": 1}, "data": [{"code": "zeebiz", "name": "Zee Business", "category": "business", "country": "us", "language": "en", "url": "https://www.zeebiz.com/"}, {"code": "focus", "name": "focus", "category": "general", "country": "de", "language": "de", "url": "www.focus.de"}]}
