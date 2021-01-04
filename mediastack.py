@@ -6,6 +6,8 @@ import re
 import random
 import numpy as np
 
+api_key = ''
+
 conn = http.client.HTTPConnection('api.mediastack.com')
 
 countries = ['au', 'br', 'ca', 'cn', 'fr', 'de', 'hk', 'in', 'it', 'jp', 'nl', 'nz', 'sa', 'sg', 'kr', 'tw', 'tr', 'ae', 'ua', 'gb', 'us']
@@ -16,10 +18,12 @@ yesterday_datetime = (datetime.datetime.today() - datetime.timedelta(days = 1)).
 today_datatime = datetime.datetime.today().strftime('%Y-%m-%d')
 datetime = yesterday_datetime + ', ' + today_datatime
 
-headline_number = 10
+headline_number = 20
 
 randomised_results = False
 prompt_for_score_update = False
+verbose = True
+api_request = False
 
 word_scores = {
     'nba': -10,
@@ -37,14 +41,21 @@ word_scores = {
     'merger': 3,
     'growth': 1,
 }
-
 with open('mediastack_word_scores.json', 'r') as json_file:
     word_scores = json.load(json_file)
+
+source_scores = {
+    'Zee Business': -10,
+    'focus': -10,
+}
+with open('mediastack_source_scores.json', 'r') as json_file:
+    source_scores = json.load(json_file)
+source_shift_step = 0.10
 
 regex = re.compile('[^a-zA-Z ]')
 
 params = urllib.parse.urlencode({
-    'access_key': 'api_key',
+    'access_key': api_key,
     'categories': 'business',
     'sort': 'published_desc',
     'limit': 100,
@@ -54,7 +65,6 @@ params = urllib.parse.urlencode({
     'sources': '-zeebiz,-focus',
     })
 
-api_request = False
 result_json_object = {}
 
 if api_request:
@@ -65,7 +75,8 @@ else:
     with open('mediastack_headlines.json', 'r') as json_file:
         result_json_object = json.load(json_file)
 
-# print(result_json_object)
+if api_request and 'error' in result_json_object:
+    print(result_json_object)
 
 headlines_list = result_json_object['data']
 headlines_selected = []
@@ -89,7 +100,7 @@ for data_item in headlines_list:
 
 # print(headlines_selected)
 
-weights = [x/sum(score_list) for x in score_list]
+weights = [x / sum(score_list) for x in score_list]
 headlines_curated = np.random.choice(headlines_selected, headline_number, True, weights)
 
 headlines_selected = sorted(headlines_selected, key = lambda x: x['score'], reverse = True)
@@ -99,7 +110,10 @@ if not randomised_results:
     headlines_curated = headlines_selected
 
 for data_item in headlines_curated:
-    print(data_item['title'], ' - ', data_item['source']) #, ' at ', data_item['published_at'], ' with score: ', data_item['score'])
+    if verbose:
+        print(data_item['title'], ' - ', data_item['source'], ' at ', data_item['published_at'], ' with score: ', data_item['score'])
+    else:
+        print(data_item['title'], ' - ', data_item['source'])
     if prompt_for_score_update:
         suggested_score = 0
         try:
@@ -112,17 +126,26 @@ for data_item in headlines_curated:
             words = title_alphabetic.split()
             for word in words:
                 if word.lower() in {x.lower() for x in word_scores}:
-                    word_scores[word.lower()] += suggested_score/len(words)
+                    word_scores[word.lower()] += suggested_score / len(words)
                 else:
-                    word_scores[word.lower()] = suggested_score/len(words)
+                    word_scores[word.lower()] = suggested_score / len(words)
+            source = data_item['source']
+            if source in source_scores:
+                source_scores[source] += suggested_score * source_shift_step
+            else:
+                source_scores[source] = suggested_score * source_shift_step
 
 print(result_json_object['pagination']['total'])
 
 if prompt_for_score_update:
     print(word_scores)
+    print(source_scores)
 
 with open('mediastack_headlines.json', 'w') as json_file:
     json.dump(result_json_object, json_file)
     
 with open('mediastack_word_scores.json', 'w') as json_file:
     json.dump(word_scores, json_file)
+    
+with open('mediastack_source_scores.json', 'w') as json_file:
+    json.dump(source_scores, json_file)
