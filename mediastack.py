@@ -22,8 +22,9 @@ headline_number = 20
 
 randomised_results = False
 prompt_for_score_update = False
-verbose = True
+verbose = False
 api_request = False
+api_request_page_limit = 5
 
 word_scores = {
     'nba': -10,
@@ -54,7 +55,7 @@ source_shift_step = 0.10
 
 regex = re.compile('[^a-zA-Z ]')
 
-params = urllib.parse.urlencode({
+request_params = {
     'access_key': api_key,
     'categories': 'business',
     'sort': 'published_desc',
@@ -63,20 +64,30 @@ params = urllib.parse.urlencode({
     'countries': 'cn,fr,de,hk,jp,sg,tw,gb,us,-in',
     'data': datetime,
     'sources': '-zeebiz,-focus',
-    })
+}
 
 result_json_object = {}
 
 if api_request:
-    conn.request('GET', '/v1/news?{}'.format(params))
-    res = conn.getresponse()
-    result_json_object = json.loads(res.read().decode('utf-8'))
+    page = 0    
+    while page < api_request_page_limit:
+        offset = page * 100
+        request_params['offset'] = offset
+        params = urllib.parse.urlencode(request_params)
+        conn.request('GET', '/v1/news?{}'.format(params))
+        res = conn.getresponse()
+        result_json_object_temp = json.loads(res.read().decode('utf-8'))
+        if 'data' in result_json_object:
+            result_json_object['data'] += result_json_object_temp['data']
+        else:
+            result_json_object = result_json_object_temp
+        page += 1
+        if 'error' in result_json_object:
+            print(result_json_object)
+            page = api_request_page_limit
 else:
     with open('mediastack_headlines.json', 'r') as json_file:
         result_json_object = json.load(json_file)
-
-if api_request and 'error' in result_json_object:
-    print(result_json_object)
 
 headlines_list = result_json_object['data']
 headlines_selected = []
@@ -135,10 +146,12 @@ for data_item in headlines_curated:
             else:
                 source_scores[source] = suggested_score * source_shift_step
 
-print(result_json_object['pagination']['total'])
+if verbose:
+    # print(result_json_object)
+    print(result_json_object['pagination']['total'])
 
 if prompt_for_score_update:
-    print(word_scores)
+    # print(word_scores)
     print(source_scores)
 
 with open('mediastack_headlines.json', 'w') as json_file:
